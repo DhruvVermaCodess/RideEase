@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MapPin, Navigation, Clock, Car, CreditCard, Search, Star, Phone, X } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PaymentGateway from './PaymentGateway';
@@ -16,7 +16,7 @@ L.Icon.Default.mergeOptions({
 
 // Custom Card Components
 const Card = ({ children, className = '' }) => (
-    <div className={`bg-white rounded-lg ${className}`}>
+    <div className={`bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-xl ${className}`}>
         {children}
     </div>
 );
@@ -84,6 +84,7 @@ const UberApp = () => {
     ]);
     const [showPayment, setShowPayment] = useState(false);
     const navigate = useNavigate();
+    const [routeCoordinates, setRouteCoordinates] = useState([]);
 
     // Function to geocode location using Nominatim
     const geocodeLocation = async (location, isPickup = true) => {
@@ -151,11 +152,15 @@ const UberApp = () => {
         if (pickupCoords && dropCoords) {
             setIsLoading(true);
             try {
-                // Calculate distance using OpenStreetMap Directions API
+                // Calculate route using OpenStreetMap Directions API
                 const response = await fetch(
-                    `https://router.project-osrm.org/route/v1/driving/${pickupCoords[1]},${pickupCoords[0]};${dropCoords[1]},${dropCoords[0]}?overview=false`
+                    `https://router.project-osrm.org/route/v1/driving/${pickupCoords[1]},${pickupCoords[0]};${dropCoords[1]},${dropCoords[0]}?overview=full&geometries=geojson`
                 );
                 const data = await response.json();
+                
+                // Set route coordinates
+                setRouteCoordinates(data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                
                 const distanceInKm = (data.routes[0].distance / 1000).toFixed(2);
                 setDistance(distanceInKm);
 
@@ -254,12 +259,19 @@ const UberApp = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 relative">
+            {/* Add decorative elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full opacity-20 blur-3xl"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-300 rounded-full opacity-20 blur-3xl"></div>
+            </div>
+
             {/* Main Content */}
-            <main className="max-w-6xl mx-auto p-4">
-                <div className="grid md:grid-cols-2 gap-6">
+            <main className="max-w-6xl mx-auto p-6 relative z-10">
+                <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Book Your Ride</h1>
+                <div className="grid md:grid-cols-2 gap-8">
                     {/* Left Column - Map */}
-                    <div className="h-96 rounded-lg overflow-hidden shadow-lg relative z-0">
+                    <div className="h-[500px] rounded-2xl overflow-hidden shadow-2xl relative z-0">
                         <MapContainer
                             center={mapCenter}
                             zoom={5}
@@ -284,6 +296,14 @@ const UberApp = () => {
                                     <Popup>Drop Location</Popup>
                                 </Marker>
                             )}
+                            {routeCoordinates.length > 0 && (
+                                <Polyline
+                                    positions={routeCoordinates}
+                                    color="#6366f1"
+                                    weight={4}
+                                    opacity={0.8}
+                                />
+                            )}
                             <ClickHandler onMapClick={handleMapClick} />
                         </MapContainer>
                         {isLoading && (
@@ -294,59 +314,67 @@ const UberApp = () => {
                     </div>
 
                     {/* Right Column - Ride Options */}
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         {/* Location Inputs */}
-                        <Card className="shadow-lg">
-                            <CardContent>
-                                <div className="space-y-4">
-                                    <div className="relative">
-                                        <MapPin className="absolute left-3 top-3 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Enter pickup location"
-                                            className="w-full pl-12 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            value={pickupLocation}
-                                            onChange={handlePickupChange}
-                                        />
-                                    </div>
-                                    <div className="relative">
-                                        <Navigation className="absolute left-3 top-3 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Enter destination"
-                                            className="w-full pl-12 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            value={dropLocation}
-                                            onChange={handleDropChange}
-                                        />
-                                    </div>
+                        <Card>
+                            <CardContent className="space-y-4">
+                                <div className="relative">
+                                    <MapPin className="absolute left-3 top-3 text-purple-600" />
+                                    <input
+                                        type="text"
+                                        placeholder="Enter pickup location"
+                                        className="w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white/50 backdrop-blur-sm transition-all"
+                                        value={pickupLocation}
+                                        onChange={handlePickupChange}
+                                    />
+                                </div>
+                                <div className="relative">
+                                    <Navigation className="absolute left-3 top-3 text-purple-600" />
+                                    <input
+                                        type="text"
+                                        placeholder="Enter destination"
+                                        className="w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white/50 backdrop-blur-sm transition-all"
+                                        value={dropLocation}
+                                        onChange={handleDropChange}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Ride Options */}
-                        <Card className="shadow-lg">
+                        <Card>
                             <CardContent>
-                                <h2 className="text-xl font-semibold mb-4">Choose a ride</h2>
-                                {distance && <p className="mb-4">Distance: {distance} km</p>}
+                                <h2 className="text-xl font-semibold mb-4 text-gray-800">Choose your ride</h2>
+                                {distance && (
+                                    <div className="mb-4 p-3 bg-purple-50 rounded-lg text-purple-700 flex items-center">
+                                        <Navigation className="w-5 h-5 mr-2" />
+                                        Distance: {distance} km
+                                    </div>
+                                )}
                                 <div className="space-y-4">
                                     {rideOptions.map((ride) => (
                                         <div
                                             key={ride.id}
-                                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${selectedRide === ride.id ? 'border-black' : ''
-                                                }`}
+                                            className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all transform hover:scale-[1.02] ${
+                                                selectedRide === ride.id 
+                                                    ? 'border-purple-500 bg-purple-50' 
+                                                    : 'hover:bg-gray-50'
+                                            }`}
                                             onClick={() => setSelectedRide(ride.id)}
                                         >
                                             <div className="flex items-center space-x-4">
-                                                <Car className="w-8 h-8" />
+                                                <div className="p-2 bg-purple-100 rounded-lg">
+                                                    <Car className="w-6 h-6 text-purple-600" />
+                                                </div>
                                                 <div>
-                                                    <h3 className="font-medium">{ride.name}</h3>
+                                                    <h3 className="font-medium text-gray-800">{ride.name}</h3>
                                                     <div className="flex items-center text-sm text-gray-500">
                                                         <Clock className="w-4 h-4 mr-1" />
                                                         <span>{ride.time}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="text-lg font-semibold">₹{ride.price}</div>
+                                            <div className="text-lg font-semibold text-purple-600">₹{ride.price}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -354,23 +382,25 @@ const UberApp = () => {
                         </Card>
 
                         {/* Payment Method */}
-                        <Card className="shadow-lg">
+                        <Card>
                             <CardContent>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-3">
-                                        <CreditCard className="w-6 h-6" />
-                                        <span className="font-medium">Payment Method</span>
+                                        <div className="p-2 bg-purple-100 rounded-lg">
+                                            <CreditCard className="w-5 h-5 text-purple-600" />
+                                        </div>
+                                        <span className="font-medium text-gray-800">Payment Method</span>
                                     </div>
-                                    <button className="text-blue-600 hover:text-blue-800">Change</button>
+                                    <button className="text-purple-600 hover:text-purple-800 font-medium">Change</button>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Book Button */}
                         <button
-                            className={`w-full py-4 rounded-lg text-white font-semibold ${
+                            className={`w-full py-4 rounded-xl text-white font-semibold transition-all transform hover:scale-[1.02] ${
                                 selectedRide && pickupLocation && dropLocation 
-                                    ? 'bg-purple-700 hover:bg-purple-800' 
+                                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg' 
                                     : 'bg-gray-300 cursor-not-allowed'
                             }`}
                             disabled={!selectedRide || !pickupLocation || !dropLocation}
